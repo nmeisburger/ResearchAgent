@@ -1,0 +1,9 @@
+[package]
+name = "research"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+agent = {"path" = "../agent"}
+async-trait = "0.1.89"
+tokio = { version = "1.47.1",  features = ["full"] }
