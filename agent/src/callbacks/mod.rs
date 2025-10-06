@@ -11,6 +11,9 @@ pub trait Callback {
 #[async_trait]
 impl Callback for SummarizeHistory {
     async fn call(&mut self, messages: Vec<Message>) -> Result<Vec<Message>> {
-        self.summarize_history(messages).await
+        if messages.iter().map(Message::ntokens).sum::<usize>() > 5000 {
+            return self.summarize_history(messages).await;
+        }
+        Ok(messages)
     }
 }

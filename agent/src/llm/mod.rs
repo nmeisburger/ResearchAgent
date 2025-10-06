@@ -17,6 +17,17 @@ pub enum Message {
     },
 }
 
+impl Message {
+    pub fn ntokens(&self) -> usize {
+        match self {
+            Message::User(content) => content.split_whitespace().count(),
+            Message::Assistant(content, _) => content.split_whitespace().count(),
+            Message::System(content) => content.split_whitespace().count(),
+            Message::Tool { result, .. } => result.split_whitespace().count(),
+        }
+    }
+}
+
 pub struct CompletionRequest<'a> {
     pub messages: &'a [Message],
     pub tools: &'a [ToolDefinition],
