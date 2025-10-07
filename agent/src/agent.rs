@@ -20,6 +20,7 @@ pub struct Agent {
     callbacks: Vec<Callback>,
     tool_defs: Vec<tools::ToolDefinition>,
     stop_condition: Box<dyn StopCondition + Send>,
+    llm_websearch: bool,
 }
 
 impl Agent {
@@ -42,6 +43,7 @@ impl Agent {
                 .completion(llm::CompletionRequest {
                     messages: &self.messages,
                     tools: &self.tool_defs,
+                    web_search_tool: self.llm_websearch,
                 })
                 .await?;
 
@@ -71,6 +73,7 @@ pub struct AgentBuilder {
     tools: Vec<Tool>,
     callbacks: Vec<Callback>,
     stop_condition: Option<Box<dyn StopCondition + Send>>,
+    llm_websearch: bool,
 }
 
 impl AgentBuilder {
@@ -82,6 +85,7 @@ impl AgentBuilder {
             tools: Vec::new(),
             callbacks: Vec::new(),
             stop_condition: None,
+            llm_websearch: false,
         }
     }
 
@@ -120,6 +124,11 @@ impl AgentBuilder {
         self
     }
 
+    pub fn llm_websearch(mut self) -> Self {
+        self.llm_websearch = true;
+        self
+    }
+
     pub fn build(self) -> Result<Agent> {
         let mut tool_defs = Vec::new();
         let mut tools = HashMap::new();
@@ -155,6 +164,7 @@ impl AgentBuilder {
             stop_condition: self.stop_condition.ok_or(Error::MissingArg(
                 "stop_condition is required for agent".to_string(),
             ))?,
+            llm_websearch: self.llm_websearch,
         })
     }
 }

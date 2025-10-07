@@ -31,6 +31,7 @@ impl Orchestrator {
                 .system_prompt(ORCHESTRATOR_PROMPT.to_string())
                 .user_prompt("TODO".to_string())
                 .llm(llm.clone())
+                .llm_websearch()
                 .tool(Box::new(CompleteTask))
                 .tool(tools::SummarizeHistory::new(llm.clone(), 2))
                 .tool(Box::new(StartSubAgent {
@@ -84,6 +85,7 @@ impl tools::Tool for StartSubAgent {
                     .system_prompt(SUBAGENT_PROMPT.to_string())
                     .user_prompt(task.clone())
                     .llm(llm)
+                    .llm_websearch()
                     .tool(Box::new(CompleteTask))
                     .tools(tools::KVMemoryTool::new().tools()?)
                     .stop_condition(Box::new(TaskCompleted))

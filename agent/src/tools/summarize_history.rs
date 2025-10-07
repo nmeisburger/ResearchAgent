@@ -29,6 +29,7 @@ impl SummarizeHistory {
             .completion(CompletionRequest {
                 messages: &messages,
                 tools: &vec![],
+                web_search_tool: false,
             })
             .await?;
 

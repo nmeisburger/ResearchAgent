@@ -10,7 +10,7 @@ use async_openai::{
         ChatCompletionRequestToolMessage, ChatCompletionRequestToolMessageContent,
         ChatCompletionRequestUserMessage, ChatCompletionRequestUserMessageContent,
         ChatCompletionTool, ChatCompletionToolArgs, ChatCompletionToolType,
-        CreateChatCompletionRequestArgs, FunctionCall, FunctionObjectArgs, Role,
+        CreateChatCompletionRequestArgs, FunctionCall, FunctionObjectArgs, Role, WebSearchOptions,
     },
 };
 use async_trait::async_trait;
@@ -102,7 +102,8 @@ impl llm::LLM for OpenAI {
         &self,
         request: llm::CompletionRequest<'a>,
     ) -> Result<llm::CompletionResponse> {
-        let request = CreateChatCompletionRequestArgs::default()
+        let mut completion = CreateChatCompletionRequestArgs::default();
+        completion
             .model(&self.model)
             .messages(
                 request
@@ -117,10 +118,15 @@ impl llm::LLM for OpenAI {
                     .into_iter()
                     .map(ChatCompletionTool::try_from)
                     .collect::<Result<Vec<_>>>()?,
-            )
-            .build()?;
+            );
 
-        let res = self.client.chat().create(request).await?;
+        if request.web_search_tool {
+            completion.web_search_options(WebSearchOptions::default());
+        }
+
+        let completion = completion.build()?;
+
+        let res = self.client.chat().create(completion).await?;
 
         if res.choices.is_empty() {
             return Err(Error::LLMResponseError("choices is empty".to_string()));

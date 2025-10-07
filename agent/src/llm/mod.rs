@@ -31,6 +31,7 @@ impl Message {
 pub struct CompletionRequest<'a> {
     pub messages: &'a [Message],
     pub tools: &'a [ToolDefinition],
+    pub web_search_tool: bool,
 }
 
 pub struct CompletionResponse {
