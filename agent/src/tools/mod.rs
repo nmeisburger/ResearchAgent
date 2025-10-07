@@ -27,7 +27,7 @@ impl ToolDefinition {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, std::hash::Hash)]
 pub struct ToolCall {
     pub id: String,
     pub name: String,
@@ -38,6 +38,12 @@ impl ToolCall {
     pub fn args<O: for<'de> serde::Deserialize<'de>>(&self) -> Result<O> {
         let args = serde_json::from_str(&self.args)?;
         Ok(args)
+    }
+}
+
+impl std::fmt::Display for ToolCall {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "- {} ({})\n\t- `{}\n`", self.name, self.id, self.args)
     }
 }
 

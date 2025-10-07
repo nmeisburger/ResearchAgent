@@ -3,6 +3,9 @@ use crate::llm::Message;
 use crate::tools::SummarizeHistory;
 use async_trait::async_trait;
 
+mod logger;
+pub use logger::MessageLogger;
+
 #[async_trait]
 pub trait Callback {
     async fn call(&mut self, messages: Vec<Message>) -> Result<Vec<Message>>;

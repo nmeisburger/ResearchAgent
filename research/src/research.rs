@@ -1,8 +1,8 @@
-use agent::llm;
 use agent::llm::Message;
 use agent::tools;
 use agent::{Agent, AgentBuilder, StopCondition};
 use agent::{Error, Result};
+use agent::{callbacks, llm};
 use async_trait::async_trait;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -23,13 +23,19 @@ pub struct Orchestrator {
 }
 
 impl Orchestrator {
-    pub fn new(llm: Arc<dyn llm::LLM + Send + Sync>) -> Result<Self> {
+    pub fn new(
+        llm: Arc<dyn llm::LLM + Send + Sync>,
+        task_desc: String,
+        log_dir: &std::path::Path,
+    ) -> Result<Self> {
         let subagent_handles = Arc::new(Mutex::new(tokio::task::JoinSet::new()));
+
+        let file = std::fs::File::create(log_dir.join("orchestrator.md"))?;
 
         Ok(Self {
             agent: AgentBuilder::new()
                 .system_prompt(ORCHESTRATOR_PROMPT.to_string())
-                .user_prompt("TODO".to_string())
+                .user_prompt(task_desc)
                 .llm(llm.clone())
                 .llm_websearch()
                 .tool(Box::new(CompleteTask))
@@ -37,10 +43,13 @@ impl Orchestrator {
                 .tool(Box::new(StartSubAgent {
                     subagents: subagent_handles.clone(),
                     llm: llm.clone(),
+                    subagent_id: std::sync::atomic::AtomicU32::new(0),
+                    log_dir: log_dir.to_path_buf(),
                 }))
                 .tool(Box::new(WaitForSubAgent(subagent_handles)))
                 .tools(tools::KVMemoryTool::new().tools()?)
                 .callback(tools::SummarizeHistory::new(llm.clone(), 2))
+                .callback(callbacks::MessageLogger::new("orchestrator", file)?)
                 .stop_condition(Box::new(TaskCompleted))
                 .build()?,
         })
@@ -54,8 +63,10 @@ impl Orchestrator {
 type SubAgentHandles = Arc<Mutex<tokio::task::JoinSet<Result<Vec<Message>>>>>;
 
 struct StartSubAgent {
+    subagent_id: std::sync::atomic::AtomicU32,
     subagents: SubAgentHandles,
     llm: Arc<dyn llm::LLM + Send + Sync>,
+    log_dir: std::path::PathBuf,
 }
 
 const ORCHESTRATOR_PROMPT: &str = include_str!("prompts/orchestrator.md");
@@ -78,16 +89,26 @@ impl tools::Tool for StartSubAgent {
         let task: String = call.args()?;
 
         self.subagents.lock().await.spawn({
+            let name = format!(
+                "subagent_{}",
+                self.subagent_id
+                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+            );
             let task = task.clone();
             let llm = self.llm.clone();
+
+            let file = std::fs::File::create(self.log_dir.join(format!("{}.md", name)))?;
             async move {
                 let agent = AgentBuilder::new()
                     .system_prompt(SUBAGENT_PROMPT.to_string())
                     .user_prompt(task.clone())
-                    .llm(llm)
+                    .llm(llm.clone())
                     .llm_websearch()
                     .tool(Box::new(CompleteTask))
+                    .tool(tools::SummarizeHistory::new(llm.clone(), 2))
                     .tools(tools::KVMemoryTool::new().tools()?)
+                    .callback(tools::SummarizeHistory::new(llm.clone(), 2))
+                    .callback(callbacks::MessageLogger::new(&name, file)?)
                     .stop_condition(Box::new(TaskCompleted))
                     .build()?;
 

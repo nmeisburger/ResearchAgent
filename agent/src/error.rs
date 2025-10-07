@@ -23,4 +23,7 @@ pub enum Error {
 
     #[error("Agent workflow error: {0}")]
     AgentWorkflowError(String),
+
+    #[error("IO Error: {0}")]
+    IOError(#[from] std::io::Error),
 }
