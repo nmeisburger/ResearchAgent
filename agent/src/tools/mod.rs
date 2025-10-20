@@ -58,7 +58,7 @@ pub trait Tool {
 pub trait FunctionalTool {
     fn definition(&self) -> Result<ToolDefinition>;
 
-    async fn invoke(&mut self, args: &ToolCall) -> Result<Message>;
+    async fn invoke_fn(&mut self, args: &ToolCall) -> Result<Message>;
 }
 
 #[async_trait]
@@ -75,7 +75,7 @@ where
         args: &ToolCall,
         mut messages: Vec<Message>,
     ) -> Result<Vec<Message>> {
-        let result = FunctionalTool::invoke(self, args).await?;
+        let result = self.invoke_fn(args).await?;
         messages.push(result);
         Ok(messages)
     }

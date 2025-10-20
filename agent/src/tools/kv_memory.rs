@@ -31,8 +31,8 @@ impl KVMemoryTool {
             .lock()
             .unwrap()
             .get(key)
-            .unwrap_or(&format!("key {} is not in memory", key))
-            .clone()
+            .map(|value| format!("value of key {}:\n{}", key, value))
+            .unwrap_or(format!("key {} is not in memory", key))
     }
 
     fn set_key(&mut self, key: String, value: String) -> String {
@@ -47,12 +47,20 @@ impl KVMemoryTool {
         }
     }
 
+    fn list_tool(&self) -> Box<MemoryListTool> {
+        Box::new(MemoryListTool(self.clone()))
+    }
+
+    fn get_tool(&self) -> Box<MemoryGetTool> {
+        Box::new(MemoryGetTool(self.clone()))
+    }
+
+    fn set_tool(&self) -> Box<MemorySetTool> {
+        Box::new(MemorySetTool(self.clone()))
+    }
+
     pub fn tools(&self) -> Result<Vec<Box<dyn Tool + Send>>> {
-        Ok(vec![
-            Box::new(MemoryListTool(self.clone())),
-            Box::new(MemoryGetTool(self.clone())),
-            Box::new(MemorySetTool(self.clone())),
-        ])
+        Ok(vec![self.list_tool(), self.get_tool(), self.set_tool()])
     }
 }
 
@@ -67,7 +75,7 @@ impl FunctionalTool for MemoryListTool {
         )
     }
 
-    async fn invoke(&mut self, call: &ToolCall) -> Result<Message> {
+    async fn invoke_fn(&mut self, call: &ToolCall) -> Result<Message> {
         Ok(Message::Tool {
             id: call.id.clone(),
             name: "memory_list_keys".to_string(),
@@ -92,7 +100,7 @@ impl FunctionalTool for MemoryGetTool {
         )
     }
 
-    async fn invoke(&mut self, call: &ToolCall) -> Result<Message> {
+    async fn invoke_fn(&mut self, call: &ToolCall) -> Result<Message> {
         let args: MemoryGetArgs = call.args()?;
         Ok(Message::Tool {
             id: call.id.clone(),
@@ -119,12 +127,85 @@ impl FunctionalTool for MemorySetTool {
         )
     }
 
-    async fn invoke(&mut self, call: &ToolCall) -> Result<Message> {
+    async fn invoke_fn(&mut self, call: &ToolCall) -> Result<Message> {
         let args: MemorySetArgs = call.args()?;
         Ok(Message::Tool {
             id: call.id.clone(),
             name: "memory_set_key".to_string(),
             result: self.0.set_key(args.key, args.value),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::KVMemoryTool;
+    use crate::Result;
+    use crate::llm::Message;
+    use crate::tools::{FunctionalTool, ToolCall};
+
+    async fn call_tool(tool: &mut dyn FunctionalTool, args: &str) -> Result<String> {
+        match tool
+            .invoke_fn(&ToolCall {
+                id: String::new(),
+                name: String::new(),
+                args: args.to_string(),
+            })
+            .await?
+        {
+            Message::Tool { result, .. } => Ok(result),
+            _ => panic!("not a tool message"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_kv_memory_tool() -> Result<()> {
+        let mut kv_memory = KVMemoryTool::new();
+
+        let mut list_tool = kv_memory.list_tool();
+        let mut get_tool = kv_memory.get_tool();
+        let mut set_tool = kv_memory.set_tool();
+
+        assert_eq!(call_tool(&mut *list_tool, "").await?, "Keys in memory:\n");
+        assert_eq!(
+            call_tool(&mut *get_tool, "{\"key\":\"abc\"}").await?,
+            "key abc is not in memory"
+        );
+        assert_eq!(
+            call_tool(&mut *set_tool, "{\"key\":\"abc\",\"value\":\"123\"}").await?,
+            "key abc inserted into memory"
+        );
+
+        assert_eq!(
+            call_tool(&mut *list_tool, "").await?,
+            "Keys in memory:\n- abc\n"
+        );
+
+        assert_eq!(
+            call_tool(&mut *set_tool, "{\"key\":\"xyz\",\"value\":\"456\"}").await?,
+            "key xyz inserted into memory"
+        );
+
+        assert_eq!(
+            call_tool(&mut *get_tool, "{\"key\":\"abc\"}").await?,
+            "value of key abc:\n123"
+        );
+
+        assert_eq!(
+            call_tool(&mut *get_tool, "{\"key\":\"xyz\"}").await?,
+            "value of key xyz:\n456"
+        );
+
+        assert_eq!(
+            call_tool(&mut *set_tool, "{\"key\":\"abc\",\"value\":\"345\"}").await?,
+            "key abc inserted into memory"
+        );
+
+        assert_eq!(
+            call_tool(&mut *get_tool, "{\"key\":\"abc\"}").await?,
+            "value of key abc:\n345"
+        );
+
+        Ok(())
     }
 }

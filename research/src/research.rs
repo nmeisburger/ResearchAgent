@@ -136,7 +136,7 @@ impl tools::FunctionalTool for WaitForSubAgent {
         )
     }
 
-    async fn invoke(&mut self, call: &tools::ToolCall) -> Result<Message> {
+    async fn invoke_fn(&mut self, call: &tools::ToolCall) -> Result<Message> {
         let mut result = match self.0.lock().await.join_next().await {
             Some(messages) => messages??,
             None => return Ok(Message::Tool {
@@ -175,7 +175,7 @@ impl tools::FunctionalTool for CompleteTask {
         )
     }
 
-    async fn invoke(&mut self, call: &tools::ToolCall) -> Result<Message> {
+    async fn invoke_fn(&mut self, call: &tools::ToolCall) -> Result<Message> {
         let result: String = call.args()?;
 
         Ok(Message::Tool {
