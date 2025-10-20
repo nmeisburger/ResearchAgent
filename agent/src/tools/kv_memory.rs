@@ -160,7 +160,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_kv_memory_tool() -> Result<()> {
-        let mut kv_memory = KVMemoryTool::new();
+        let kv_memory = KVMemoryTool::new();
 
         let mut list_tool = kv_memory.list_tool();
         let mut get_tool = kv_memory.get_tool();

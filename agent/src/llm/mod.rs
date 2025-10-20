@@ -6,7 +6,7 @@ use std::hash::{Hash, Hasher};
 mod openai;
 pub use openai::OpenAI;
 
-#[derive(Clone, std::hash::Hash)]
+#[derive(Clone, std::hash::Hash, Debug)]
 pub enum Message {
     User(String),
     Assistant(String, Vec<ToolCall>),

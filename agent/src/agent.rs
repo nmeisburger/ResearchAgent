@@ -168,3 +168,105 @@ impl AgentBuilder {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use core::panic;
+
+    use crate::llm::{CompletionRequest, CompletionResponse, LLM, Message};
+    use crate::tools::{FunctionalTool, ToolCall, ToolDefinition};
+    use crate::{AgentBuilder, Result, StopCondition};
+    use async_trait::async_trait;
+    use std::sync::Arc;
+
+    struct MockLLM;
+
+    #[async_trait]
+    impl LLM for MockLLM {
+        async fn completion<'a>(
+            &self,
+            request: CompletionRequest<'a>,
+        ) -> Result<CompletionResponse> {
+            match request.messages.last() {
+                Some(Message::User(_)) => Ok(CompletionResponse {
+                    content: "tool call".to_string(),
+                    tool_calls: vec![ToolCall {
+                        id: "call1".to_string(),
+                        name: "double".to_string(),
+                        args: "{\"arg\":123}".to_string(),
+                    }],
+                }),
+                Some(Message::Tool { .. }) => Ok(CompletionResponse {
+                    content: "tool call recieved".to_string(),
+                    tool_calls: vec![],
+                }),
+                Some(Message::Assistant(_, _)) => Ok(CompletionResponse {
+                    content: "completed".to_string(),
+                    tool_calls: vec![],
+                }),
+                _ => panic!("unexpected message sequence"),
+            }
+        }
+    }
+
+    struct DoubleTool;
+
+    #[derive(serde::Deserialize, schemars::JsonSchema)]
+    struct DoubleArgs {
+        arg: i32,
+    }
+
+    #[async_trait]
+    impl FunctionalTool for DoubleTool {
+        fn definition(&self) -> Result<ToolDefinition> {
+            ToolDefinition::new::<DoubleArgs>("double", "double")
+        }
+
+        async fn invoke_fn(&mut self, tool_call: &ToolCall) -> Result<Message> {
+            let args: DoubleArgs = tool_call.args()?;
+            Ok(Message::Tool {
+                id: tool_call.id.clone(),
+                name: "double".to_string(),
+                result: format!("2 * {} = {}", args.arg, 2 * args.arg),
+            })
+        }
+    }
+
+    struct SimpleStop;
+
+    impl StopCondition for SimpleStop {
+        fn done(&self, history: &[Message]) -> bool {
+            if let Some(Message::Assistant(content, _)) = history.last() {
+                content == "completed"
+            } else {
+                false
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_agent() -> Result<()> {
+        let agent = AgentBuilder::new()
+            .llm(Arc::new(MockLLM))
+            .user_prompt("do stuff".to_string())
+            .tool(Box::new(DoubleTool))
+            .stop_condition(Box::new(SimpleStop))
+            .build()?;
+
+        let history = agent.run().await?;
+
+        println!("{:?}", history);
+
+        assert_eq!(history.len(), 5);
+
+        assert!(matches!(&history[0], Message::User (content) if content == "do stuff"));
+        assert!(matches!(&history[1], Message::Assistant (_, tool_calls) if tool_calls.len() == 1));
+        assert!(matches!(&history[2], Message::Tool {  result,.. } if result == "2 * 123 = 246"));
+        assert!(
+            matches!(&history[3], Message::Assistant (content, _) if content== "tool call recieved")
+        );
+        assert!(matches!(&history[4], Message::Assistant (content, _) if content== "completed"));
+
+        Ok(())
+    }
+}

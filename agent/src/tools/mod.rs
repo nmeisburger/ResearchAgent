@@ -27,7 +27,7 @@ impl ToolDefinition {
     }
 }
 
-#[derive(Clone, std::hash::Hash)]
+#[derive(Clone, std::hash::Hash, Debug)]
 pub struct ToolCall {
     pub id: String,
     pub name: String,
