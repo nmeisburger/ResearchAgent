@@ -55,8 +55,20 @@ impl Orchestrator {
         })
     }
 
-    pub async fn run(self) -> Result<Vec<Message>> {
-        self.agent.run().await
+    pub async fn run(self) -> Result<String> {
+        let mut history = self.agent.run().await?;
+
+        match history.pop() {
+            Some(Message::Tool { name, result, .. }) if name == "complete_task" => Ok(result),
+            Some(Message::Tool { name, .. }) => Err(Error::AgentWorkflowError(format!(
+                "expected final message to be complete_task tool call not {} tool call",
+                name
+            ))),
+            Some(_) => Err(Error::AgentWorkflowError(
+                "expected final message to be complete_task tool call".to_string(),
+            )),
+            None => Err(Error::AgentWorkflowError(format!("message history empty"))),
+        }
     }
 }
 
@@ -72,12 +84,18 @@ struct StartSubAgent {
 const ORCHESTRATOR_PROMPT: &str = include_str!("prompts/orchestrator.md");
 const SUBAGENT_PROMPT: &str = include_str!("prompts/subagent.md");
 
+#[derive(serde::Deserialize, schemars::JsonSchema)]
+struct StartSubAgentArgs {
+    /// this is the description of the task that the sub-agent should complete
+    task_desc: String,
+}
+
 #[async_trait]
 impl tools::Tool for StartSubAgent {
     fn definition(&self) -> Result<tools::ToolDefinition> {
-        tools::ToolDefinition::new::<String>(
+        tools::ToolDefinition::new::<StartSubAgentArgs>(
             "start_subagent",
-            "create a research sub-agent to investigate a specific research task",
+            "This tool allows you to create a research sub-agent to investigate a specific research task. You must use this tool to delegate parts of your research task to sub-agents. Make sure to provide clear instructions to the sub-agent as to what it should research.",
         )
     }
 
@@ -86,7 +104,7 @@ impl tools::Tool for StartSubAgent {
         call: &tools::ToolCall,
         mut messages: Vec<Message>,
     ) -> Result<Vec<Message>> {
-        let task: String = call.args()?;
+        let args: StartSubAgentArgs = call.args()?;
 
         self.subagents.lock().await.spawn({
             let name = format!(
@@ -94,14 +112,14 @@ impl tools::Tool for StartSubAgent {
                 self.subagent_id
                     .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
             );
-            let task = task.clone();
+            let task_prompt = args.task_desc.clone();
             let llm = self.llm.clone();
 
             let file = std::fs::File::create(self.log_dir.join(format!("{}.md", name)))?;
             async move {
                 let agent = AgentBuilder::new()
                     .system_prompt(SUBAGENT_PROMPT.to_string())
-                    .user_prompt(task.clone())
+                    .user_prompt(task_prompt.clone())
                     .llm(llm.clone())
                     .llm_websearch()
                     .tool(Box::new(CompleteTask))
@@ -119,7 +137,7 @@ impl tools::Tool for StartSubAgent {
         messages.push(Message::Tool {
             id: call.id.clone(),
             name: "start_subagent".to_string(),
-            result: format!("Research sub-agent started for task: {}", task),
+            result: format!("Research sub-agent started for task: {}", args.task_desc),
         });
         Ok(messages)
     }
@@ -132,7 +150,7 @@ impl tools::FunctionalTool for WaitForSubAgent {
     fn definition(&self) -> Result<tools::ToolDefinition> {
         tools::ToolDefinition::new::<()>(
             "wait_for_subagent",
-            "wait for a research sub-agent to completes its task and obtain the result",
+            "This tool will wait for any of the active sub-agents to complete, and return the result they provide for their completed task.",
         )
     }
 
@@ -171,7 +189,7 @@ impl tools::FunctionalTool for CompleteTask {
     fn definition(&self) -> Result<tools::ToolDefinition> {
         tools::ToolDefinition::new::<String>(
             "complete_task",
-            "finish your task and return the result to the lead researcher",
+            "This tool will mark your task as complete and return the result. You must use this tool when you have completed your task.",
         )
     }
 

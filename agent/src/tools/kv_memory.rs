@@ -71,7 +71,7 @@ impl FunctionalTool for MemoryListTool {
     fn definition(&self) -> Result<super::ToolDefinition> {
         ToolDefinition::new::<()>(
             "memory_list_keys",
-            "list the keys that are available in memory",
+            "This tool allows you to view the different memory keys you have saved.",
         )
     }
 
@@ -86,6 +86,7 @@ impl FunctionalTool for MemoryListTool {
 
 #[derive(Deserialize, JsonSchema)]
 struct MemoryGetArgs {
+    /// this is the key that is used to identify the value that will be retrieved from memory
     key: String,
 }
 
@@ -96,7 +97,7 @@ impl FunctionalTool for MemoryGetTool {
     fn definition(&self) -> Result<super::ToolDefinition> {
         ToolDefinition::new::<MemoryGetArgs>(
             "memory_get_key",
-            "get the value associated with the given key in memory",
+            "This tool allows you to retrieve some information you remembered by providing the key used to identify it.",
         )
     }
 
@@ -112,7 +113,9 @@ impl FunctionalTool for MemoryGetTool {
 
 #[derive(Deserialize, JsonSchema)]
 struct MemorySetArgs {
+    /// this is the key that will be used to identify the value in memory
     key: String,
+    /// this is the value that will be stored in memory
     value: String,
 }
 
@@ -123,7 +126,7 @@ impl FunctionalTool for MemorySetTool {
     fn definition(&self) -> Result<super::ToolDefinition> {
         ToolDefinition::new::<MemorySetArgs>(
             "memory_set_key",
-            "set the value associated with the given key in memory",
+            "This tool allows you to remember a value using a specified key. They key can the be used with the memory_get_key tool to retrieve the value. This should be removed to remember important pieces of information that you will want to refer back to later. Make sure to use a meaningful key so that you can correctly retrieve information later.",
         )
     }
 

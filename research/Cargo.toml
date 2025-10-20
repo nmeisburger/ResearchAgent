@@ -7,3 +7,6 @@ edition = "2024"
 agent = {"path" = "../agent"}
 async-trait = "0.1.89"
 tokio = { version = "1.47.1",  features = ["full"] }
+schemars = "0.8"
+serde = { version = "1.0", features = ["derive"] }
+clap = { version = "4.0", features = ["derive"] }

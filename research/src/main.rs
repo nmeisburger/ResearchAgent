@@ -1,15 +1,32 @@
 mod research;
 use agent::Result;
 
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// The research task
+    #[arg(short, long)]
+    task: String,
+
+    /// Name of the model to use
+    #[arg(short, long)]
+    model: String,
+
+    /// Directory to store logs in
+    #[arg(short, long, default_value = "./agent_logs")]
+    log_dir: String,
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    let llm = agent::llm::OpenAI::new("gpt-4o".to_string());
+    let args = Args::parse();
 
-    let orchestrator = research::Orchestrator::new(
-        llm,
-        "TODO Task".to_string(),
-        &std::path::Path::new("todo log dir"),
-    )?;
+    let llm = agent::llm::OpenAI::new(args.model);
+
+    let orchestrator =
+        research::Orchestrator::new(llm, args.task, &std::path::Path::new(&args.log_dir))?;
 
     orchestrator.run().await?;
 

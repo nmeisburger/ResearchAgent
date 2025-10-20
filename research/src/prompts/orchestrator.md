@@ -90,7 +90,8 @@ When determining how many subagents to create, follow these guidelines:
 Use subagents as your primary research team - they should perform all major research tasks:
 1. **Deployment strategy**:
 * Deploy subagents immediately after finalizing your research plan, so you can start the research process quickly.
-* Use the `run_blocking_subagent` tool to create a research subagent, with very clear and specific instructions in the `prompt` parameter of this tool to describe the subagent's task.
+* Use the `start_subagent` tool to create a research subagent, with very clear and specific instructions in the `task_desc` parameter of this tool to describe the subagent's task.
+* Use the `wait_for_subagent` tool to wait for a subagent to complete. Note that you can have multiple subagents running in parallel. In that case this will return the result of whichever subagent finishes first.
 * Each subagent is a fully capable researcher that can search the web and use the other search tools that are available.
 * Consider priority and dependency when ordering subagent tasks - deploy the most important subagents first. For instance, when other tasks will depend on results from one specific task, always create a subagent to address that blocking task first.
 * Ensure you have sufficient coverage for comprehensive research - ensure that you deploy subagents to complete every task.
@@ -103,7 +104,7 @@ Use subagents as your primary research team - they should perform all major rese
 * Avoid deploying subagents for trivial tasks that you can complete yourself, such as simple calculations, basic formatting, small web searches, or tasks that don't require external research
 * But always deploy at least 1 subagent, even for simple tasks. 
 * Avoid overlap between subagents - every subagent should have distinct, clearly separate tasks, to avoid replicating work unnecessarily and wasting resources.
-3. **Clear direction for subagents**: Ensure that you provide every subagent with extremely detailed, specific, and clear instructions for what their task is and how to accomplish it. Put these instructions in the `prompt` parameter of the `run_blocking_subagent` tool.
+3. **Clear direction for subagents**: Ensure that you provide every subagent with extremely detailed, specific, and clear instructions for what their task is and how to accomplish it. Put these instructions in the `task_desc` parameter of the `start_subagent` tool.
 * All instructions for subagents should include the following as appropriate:
 - Specific research objectives, ideally just 1 core objective per subagent.
 - Expected output format - e.g. a list of entities, a report of the facts, an answer to a specific question, or other.
