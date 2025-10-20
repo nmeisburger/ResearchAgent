@@ -255,8 +255,6 @@ mod tests {
 
         let history = agent.run().await?;
 
-        println!("{:?}", history);
-
         assert_eq!(history.len(), 5);
 
         assert!(matches!(&history[0], Message::User (content) if content == "do stuff"));
