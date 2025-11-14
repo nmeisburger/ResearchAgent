@@ -9,6 +9,10 @@ pub use logger::MessageLogger;
 #[async_trait]
 pub trait Callback {
     async fn call(&mut self, messages: Vec<Message>) -> Result<Vec<Message>>;
+
+    async fn on_agent_start(&mut self) -> Result<()> {
+        Ok(())
+    }
 }
 
 #[async_trait]

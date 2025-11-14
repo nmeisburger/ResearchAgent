@@ -146,6 +146,11 @@ impl tools::Tool for StartSubAgent {
         });
         Ok(messages)
     }
+
+    async fn on_agent_start(&mut self) -> Result<()> {
+        self.subagents.lock().await.shutdown().await;
+        Ok(())
+    }
 }
 
 struct WaitForSubAgent(SubAgentHandles);

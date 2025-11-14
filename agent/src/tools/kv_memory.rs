@@ -47,6 +47,10 @@ impl KVMemoryTool {
         }
     }
 
+    fn clear(&mut self) {
+        self.memory.lock().unwrap().clear();
+    }
+
     fn list_tool(&self) -> Box<MemoryListTool> {
         Box::new(MemoryListTool(self.clone()))
     }
@@ -108,6 +112,11 @@ impl FunctionalTool for MemoryGetTool {
             name: "memory_get_key".to_string(),
             result: self.0.get_key(&args.key),
         })
+    }
+
+    async fn on_agent_start_fn(&mut self) -> Result<()> {
+        self.0.clear();
+        Ok(())
     }
 }
 

@@ -39,6 +39,14 @@ impl Agent {
     }
 
     pub async fn run(&mut self, mut messages: Vec<llm::Message>) -> Result<Vec<Message>> {
+        for callback in &mut self.callbacks {
+            callback.on_agent_start().await?;
+        }
+
+        for tool in &mut self.tools.values_mut() {
+            tool.on_agent_start().await?;
+        }
+
         while !self.stop_condition.done(&messages) {
             let next = self
                 .llm

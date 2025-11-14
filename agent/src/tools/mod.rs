@@ -52,6 +52,10 @@ pub trait Tool {
     fn definition(&self) -> Result<ToolDefinition>;
 
     async fn invoke(&mut self, args: &ToolCall, messages: Vec<Message>) -> Result<Vec<Message>>;
+
+    async fn on_agent_start(&mut self) -> Result<()> {
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -59,6 +63,10 @@ pub trait FunctionalTool {
     fn definition(&self) -> Result<ToolDefinition>;
 
     async fn invoke_fn(&mut self, args: &ToolCall) -> Result<Message>;
+
+    async fn on_agent_start_fn(&mut self) -> Result<()> {
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -78,5 +86,9 @@ where
         let result = self.invoke_fn(args).await?;
         messages.push(result);
         Ok(messages)
+    }
+
+    async fn on_agent_start(&mut self) -> Result<()> {
+        self.on_agent_start_fn().await
     }
 }
