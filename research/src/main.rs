@@ -25,10 +25,9 @@ async fn main() -> Result<()> {
 
     let llm = agent::llm::OpenAI::new(args.model);
 
-    let orchestrator =
-        research::Orchestrator::new(llm, args.task, &std::path::Path::new(&args.log_dir))?;
+    let orchestrator = research::Orchestrator::new(llm, &std::path::Path::new(&args.log_dir))?;
 
-    orchestrator.run().await?;
+    orchestrator.run(args.task).await?;
 
     Ok(())
 }

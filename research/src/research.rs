@@ -23,19 +23,15 @@ pub struct Orchestrator {
 }
 
 impl Orchestrator {
-    pub fn new(
-        llm: Arc<dyn llm::LLM + Send + Sync>,
-        task_desc: String,
-        log_dir: &std::path::Path,
-    ) -> Result<Self> {
+    pub fn new(llm: Arc<dyn llm::LLM + Send + Sync>, log_dir: &std::path::Path) -> Result<Self> {
         let subagent_handles = Arc::new(Mutex::new(tokio::task::JoinSet::new()));
 
         let file = std::fs::File::create(log_dir.join("orchestrator.md"))?;
 
         Ok(Self {
             agent: AgentBuilder::new()
-                .system_prompt(ORCHESTRATOR_PROMPT.to_string())
-                .user_prompt(task_desc)
+                // .system_prompt(ORCHESTRATOR_PROMPT.to_string())
+                // .user_prompt(task_desc)
                 .llm(llm.clone())
                 .llm_websearch()
                 .tool(Box::new(CompleteTask))
@@ -55,8 +51,14 @@ impl Orchestrator {
         })
     }
 
-    pub async fn run(self) -> Result<String> {
-        let mut history = self.agent.run().await?;
+    pub async fn run(mut self, task_desc: String) -> Result<String> {
+        let mut history = self
+            .agent
+            .run(vec![
+                Message::System(ORCHESTRATOR_PROMPT.to_string()),
+                Message::User(task_desc),
+            ])
+            .await?;
 
         match history.pop() {
             Some(Message::Tool { name, result, .. }) if name == "complete_task" => Ok(result),
@@ -117,9 +119,7 @@ impl tools::Tool for StartSubAgent {
 
             let file = std::fs::File::create(self.log_dir.join(format!("{}.md", name)))?;
             async move {
-                let agent = AgentBuilder::new()
-                    .system_prompt(SUBAGENT_PROMPT.to_string())
-                    .user_prompt(task_prompt.clone())
+                let mut agent = AgentBuilder::new()
                     .llm(llm.clone())
                     .llm_websearch()
                     .tool(Box::new(CompleteTask))
@@ -130,7 +130,12 @@ impl tools::Tool for StartSubAgent {
                     .stop_condition(Box::new(TaskCompleted))
                     .build()?;
 
-                agent.run().await
+                agent
+                    .run(vec![
+                        Message::System(SUBAGENT_PROMPT.to_string()),
+                        Message::User(task_prompt.clone()),
+                    ])
+                    .await
             }
         });
 
